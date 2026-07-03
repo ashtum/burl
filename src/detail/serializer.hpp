@@ -18,6 +18,7 @@
 #include <boost/capy/buffers/buffer_slice.hpp>
 #include <boost/capy/io/any_write_stream.hpp>
 #include <boost/capy/io_task.hpp>
+#include <boost/capy/write.hpp>
 
 namespace boost
 {
@@ -80,18 +81,7 @@ public:
     capy::io_task<std::size_t>
     write(Buffers buffers)
     {
-        auto const avail = capy::buffer_size(buffers);
-        auto slice = capy::buffer_slice(buffers);
-        std::size_t written = 0;
-        while(written < avail)
-        {
-            auto [ec, n] = co_await write_some(slice.data());
-            written += n;
-            if(ec)
-                co_return { ec, written };
-            slice.remove_prefix(n);
-        }
-        co_return { {}, avail };
+        return capy::write(*this, std::move(buffers));
     }
 
     template<capy::ConstBufferSequence Buffers>
