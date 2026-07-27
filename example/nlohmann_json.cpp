@@ -18,6 +18,7 @@
 namespace burl    = boost::burl;
 namespace capy    = boost::capy;
 namespace corosio = boost::corosio;
+namespace http    = boost::http;
 
 namespace nlohmann
 {
@@ -49,7 +50,7 @@ tag_invoke(burl::body_from_tag<nlohmann::json>, const nlohmann::json& value)
         }
 
         capy::io_task<>
-        write(capy::any_buffer_sink& sink) const
+        write(http::any_buffer_sink& sink) const
         {
             auto [ec, n] = co_await sink.write_eof(capy::make_buffer(text_));
             co_return { ec };
