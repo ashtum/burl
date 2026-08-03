@@ -11,7 +11,8 @@
 #define BOOST_BURL_TEST_RESPONSE_FACTORY_HPP
 
 #include <boost/burl/detail/connection_pool.hpp>
-#include <boost/burl/detail/response_parser.hpp>
+#include <boost/burl/message_reader.hpp>
+#include <boost/burl/response_parser.hpp>
 #include <boost/burl/response.hpp>
 #include <boost/burl/response_head.hpp>
 #include <boost/burl/test/detail/buffer_connection.hpp>
@@ -269,11 +270,14 @@ public:
             {},
             {});
 
-        burl::detail::response_parser parser({}, conn.stream());
+        burl::response_parser parser(
+            burl::response_parser::config{});
         parser.start();
+        auto stream = conn.stream();
         capy::test::run_blocking()([&]() -> capy::task<>
         {
-            if(auto [ec] = co_await parser.read_header(); ec)
+            if(auto [ec] = co_await burl::message_reader{
+                   &stream, &parser }.read_header(); ec)
                 throw system::system_error(ec);
         }());
 

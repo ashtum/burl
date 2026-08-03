@@ -25,11 +25,12 @@ namespace burl
 response::response(
     urls::url url,
     detail::pooled_connection conn,
-    detail::response_parser parser,
-    std::unique_ptr<detail::parser::decoder> dec,
+    response_parser parser,
+    std::unique_ptr<parser::decoder> dec,
     std::optional<clock::time_point> deadline)
     : url_(std::move(url))
     , conn_(std::move(conn))
+    , stream_(conn_.stream())
     , parser_(std::move(parser))
     , decoder_(std::move(dec))
     , deadline_(deadline)
@@ -39,6 +40,7 @@ response::response(
 response::response(response&& other) noexcept
     : url_(std::move(other.url_))
     , conn_(std::move(other.conn_))
+    , stream_(std::move(other.stream_))
     , parser_(std::move(other.parser_))
     , decoder_(std::move(other.decoder_))
     , deadline_(other.deadline_)
@@ -54,6 +56,7 @@ response::operator=(response&& other) noexcept
             conn_.return_to_pool();
         url_      = std::move(other.url_);
         conn_     = std::move(other.conn_);
+        stream_   = std::move(other.stream_);
         parser_   = std::move(other.parser_);
         decoder_  = std::move(other.decoder_);
         deadline_ = other.deadline_;
@@ -72,8 +75,9 @@ response::try_as_view() &
 {
     if(deadline_)
         co_return co_await corosio::timeout(
-            parser_.read_body(), *deadline_ - clock::now());
-    co_return co_await parser_.read_body();
+            message_reader{ &stream_, &parser_ }.read_body(),
+            *deadline_ - clock::now());
+    co_return co_await message_reader{ &stream_, &parser_ }.read_body();
 }
 
 capy::task<std::string_view>
@@ -90,13 +94,15 @@ response::as_view() &
 http::any_buffer_source
 response::as_buffer_source() &
 {
-    return http::any_buffer_source(&parser_);
+    return http::any_buffer_source(
+        message_reader{ &stream_, &parser_ });
 }
 
 http::any_read_source
 response::as_read_source() &
 {
-    return http::any_read_source(&parser_);
+    return http::any_read_source(
+        message_reader{ &stream_, &parser_ });
 }
 
 } // namespace burl
